@@ -127,7 +127,7 @@
             <div id="result-area" class="hidden"></div>
         </main>
         <footer>
-            <p class="description">js の canvas 機能を使っています<br/>見て分からない程度ですが<br/>どうしてもデータ量は減少します<br/>そこはご了承ください</p>
+            <p class="description">js の canvas 機能を使っています<br/>普通に見て分からない程度ですが<br/>どうしてもデータ量は減少します<br/>そこはご了承ください</p>
         </footer>
     </div>
 
@@ -184,17 +184,28 @@
                 // Smart Optimization Logic
                 const blob = await smartOptimize(img, file.size);
 
-                // Download Link
-                const url = window.URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = file.name.split('.')[0] + "_clean.jpg";
-                link.className = 'download-link';
-                link.textContent = '💾 変換後の画像を保存';
+                // Display the converted image
+                const url = URL.createObjectURL(blob);
 
-                resultArea.appendChild(link);
+                const imgPreview = document.createElement('img');
+                imgPreview.src = url;
+                imgPreview.style.width = '100%';
+                imgPreview.style.marginTop = '1rem';
+                imgPreview.style.borderRadius = '0.5rem';
+
+                // Save instruction for mobile / desktop users
+                const saveHint = document.createElement('p');
+                saveHint.textContent = '画像を右クリックまたは長押しから保存してください';
+                saveHint.style.fontSize = '0.8rem';
+                saveHint.style.color = 'var(--text-secondary)';
+                saveHint.style.marginTop = '0.5rem';
+
+                resultArea.innerHTML = '';
+                resultArea.appendChild(imgPreview);
+                resultArea.appendChild(saveHint);
                 resultArea.classList.remove('hidden');
-                statusArea.textContent = "完了しました";
+
+                statusArea.textContent = '変換が完了しました';
 
             } catch (error) {
                 console.error(error);

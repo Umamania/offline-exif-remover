@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>【オフライン】画像メタデータ削除ツール</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent: #10b981;
+            --accent-hover: #059669;
+            --border: #334155;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background-color: var(--card-bg);
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 480px;
+            text-align: center;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .tag {
+            display: inline-block;
+            background-color: var(--accent);
+            color: white;
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.7rem;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+        }
+
+        .description {
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+        }
+
+        .upload-area {
+            border: 2px dashed var(--border);
+            border-radius: 0.75rem;
+            padding: 2rem 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background-color: rgba(255, 255, 255, 0.02);
+            margin-bottom: 1.5rem;
+        }
+
+        .upload-area:active {
+            border-color: var(--accent);
+            background-color: rgba(16, 185, 129, 0.05);
+        }
+
+        .icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.7;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        #status-area {
+            margin-top: 1rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .download-link {
+            display: block;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: var(--border);
+            color: var(--text-primary);
+            text-decoration: none;
+            border-radius: 0.5rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <span class="tag">通信不要（完全オフライン）</span>
+            <h1>画像メタデータ削除</h1>
+            <p class="description">位置情報など全ての情報を削除<br/>AI画像のプロンプトも削除<br/>通信しないのでどこにも情報飛びません</p>
+        </header>
+
+        <main>
+            <div class="upload-area" id="drop-zone">
+                <div class="icon">🖼️</div>
+                <p>ここに画像をドラッグ＆ドロップ<br/>またはタップして選択</p>
+                <input type="file" id="file-input" accept="image/*" hidden>
+            </div>
+
+            <div id="status-area"></div>
+            <div id="result-area" class="hidden"></div>
+        </main>
+        <footer>
+            <p class="description">js の canvas 機能を使っています<br/>見て分からない程度ですが<br/>どうしてもデータ量は減少します<br/>そこはご了承ください</p>
+        </footer>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const statusArea = document.getElementById('status-area');
+        const resultArea = document.getElementById('result-area');
+
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        fileInput.addEventListener('change', function (e) {
+            if (this.files.length > 0) {
+                processFile(this.files[0]);
+            }
+        });
+
+        // Drag & Drop
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+            // Visual feedback handled by CSS (if :active is not enough, can add .dragover class styling)
+            dropZone.style.borderColor = 'var(--accent)';
+            dropZone.style.backgroundColor = 'rgba(16, 185, 129, 0.05)';
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+            dropZone.style.borderColor = '';
+            dropZone.style.backgroundColor = '';
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            dropZone.style.borderColor = '';
+            dropZone.style.backgroundColor = '';
+
+            const files = e.dataTransfer.files;
+            if (files.length) {
+                processFile(files[0]);
+            }
+        });
+
+        async function processFile(file) {
+            statusArea.textContent = `${file.name} を読み込み中...`;
+            resultArea.innerHTML = '';
+            resultArea.classList.add('hidden');
+
+            try {
+                const img = await loadImage(file);
+                statusArea.textContent = `${file.name} を最適化中...`;
+
+                // Smart Optimization Logic
+                const blob = await smartOptimize(img, file.size);
+
+                // Download Link
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = file.name.split('.')[0] + "_clean.jpg";
+                link.className = 'download-link';
+                link.textContent = '💾 変換後の画像を保存';
+
+                resultArea.appendChild(link);
+                resultArea.classList.remove('hidden');
+                statusArea.textContent = "完了しました";
+
+            } catch (error) {
+                console.error(error);
+                statusArea.textContent = "エラーが発生しました。";
+            }
+        }
+
+        function loadImage(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => resolve(img);
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function smartOptimize(img, originalSize) {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+
+            // Try decreasing quality until size is less than original or quality is too low
+            let quality = 1.0;
+            let blob = null;
+
+            while (quality >= 0.70) {
+                blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+
+                if (!blob) { break; } // Safety
+
+                console.log(`Quality: ${quality.toFixed(2)}, Size: ${blob.size}, Original: ${originalSize}`);
+
+                if (blob.size <= originalSize) {
+                    break; // Good enough!
+                }
+
+                quality -= 0.05;
+            }
+
+            if (!blob) {
+                blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.80));
+            }
+
+            return blob;
+        }
+    </script>
+</body>
+
+</html>
